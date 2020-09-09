@@ -12,14 +12,18 @@ export default function registerTiledJSONExternalLoader(Phaser) {
   const MultiFile = Phaser.Loader.MultiFile;
 
   class TiledJSONExternalFile extends MultiFile {
-    constructor(loader, key, tilemapURL, path, baseURL, tilemapXhrSettings, tilesetXhrSettings) {
+    /**
+     * If `pathFormat` is a string, it's used as the `path` variable during further lookup
+     * (as documented). If it's a function, the first parameter is https://doc.mapeditor.org/en/stable/reference/json-map-format/#tileset and the second the file object of the tileset as a whole.
+     */
+    constructor(loader, key, tilemapURL, pathLookup, baseURL, tilemapXhrSettings, tilesetXhrSettings) {
       if (IsPlainObject(key)) {
         const config = key;
 
         key = GetFastValue(config, 'key');
         tilemapURL = GetFastValue(config, 'url');
         tilemapXhrSettings = GetFastValue(config, 'xhrSettings');
-        path = GetFastValue(config, 'path');
+        pathLookup = GetFastValue(config, 'pathLookup') || GetFastValue(config, 'path');
         baseURL = GetFastValue(config, 'baseURL');
         tilesetXhrSettings = GetFastValue(config, 'tilesetXhrSettings');
       }
@@ -27,7 +31,7 @@ export default function registerTiledJSONExternalLoader(Phaser) {
       const tilemapFile = new JSONFile(loader, key, tilemapURL, tilemapXhrSettings);
       super(loader, 'tilemapJSON', key, [tilemapFile]);
 
-      this.config.path = path;
+      this.config.pathLookup = pathLookup;
       this.config.baseURL = baseURL;
       this.config.tilesetXhrSettings = tilesetXhrSettings;
     }
@@ -49,12 +53,14 @@ export default function registerTiledJSONExternalLoader(Phaser) {
           const currentPrefix = loader.prefix;
 
           const baseURL = GetFastValue(config, 'baseURL', currentBaseURL);
-          const path = GetFastValue(config, 'path', currentPath);
+          const pathLookup = GetFastValue(config, 'pathLookup', currentPath);
           const prefix = GetFastValue(config, 'prefix', currentPrefix);
           const tilesetXhrSettings = GetFastValue(config, 'tilesetXhrSettings');
 
           loader.setBaseURL(baseURL);
-          loader.setPath(path);
+          if (typeof(pathLookup) == 'string') {
+            loader.setPath(pathLookup);
+          }
           loader.setPrefix(prefix);
 
           for (const [index, tileset] of tilesets.entries()) {
@@ -64,9 +70,14 @@ export default function registerTiledJSONExternalLoader(Phaser) {
 
             // Tileset is relative to the tilemap filename, so we abuse URL to
             // get the relative path.
-            const url = new URL(file.src, 'http://example.com');
-            url.pathname += `/../${tileset.source}`;
-            const tilesetUrl = url.pathname.slice(1);
+            let tilesetUrl = undefined;
+            if (typeof(pathLookup) == 'function') {
+              tilesetUrl = pathLookup.call(undefined, tileset, file);
+            } else {
+              const url = new URL(file.src, 'http://example.com');
+              url.pathname += `/../${tileset.source}`;
+              tilesetUrl = url.pathname.slice(1);
+            }
 
             const tilesetFile = new JSONFile(
               loader,
