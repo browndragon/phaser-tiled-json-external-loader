@@ -14,7 +14,10 @@ export default function registerTiledJSONExternalLoader(Phaser) {
   class TiledJSONExternalFile extends MultiFile {
     /**
      * If `pathFormat` is a string, it's used as the `path` variable during further lookup
-     * (as documented). If it's a function, the first parameter is https://doc.mapeditor.org/en/stable/reference/json-map-format/#tileset and the second the file object of the tileset as a whole.
+     * (as documented). If it's a function:
+     * Parameter 1: https://doc.mapeditor.org/en/stable/reference/json-map-format/#tileset
+     * Parameter 2: The index of which tileset we're loading.
+     * Parameter 3: The tilemap json file.
      */
     constructor(loader, key, tilemapURL, pathLookup, baseURL, tilemapXhrSettings, tilesetXhrSettings) {
       if (IsPlainObject(key)) {
@@ -72,7 +75,7 @@ export default function registerTiledJSONExternalLoader(Phaser) {
             // get the relative path.
             let tilesetUrl = undefined;
             if (typeof(pathLookup) == 'function') {
-              tilesetUrl = pathLookup.call(undefined, tileset, file);
+              tilesetUrl = pathLookup.call(undefined, tileset, index, file);
             } else {
               const url = new URL(file.src, 'http://example.com');
               url.pathname += `/../${tileset.source}`;
